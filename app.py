@@ -1,16 +1,26 @@
 from flask import Flask
 from flask_cors import CORS
-from flask_mysqldb import MySQL
+import pymysql
+import os
 from config.settings import Config
 
-mysql = MySQL()
+# Replace MySQLdb with PyMySQL (IMPORTANT FIX)
+pymysql.install_as_MySQLdb()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
     CORS(app, resources={r"/api/*": {"origins": "*"}})
-    mysql.init_app(app)
+
+    # =========================
+    # DATABASE CONFIG (NEW)
+    # =========================
+    app.config["MYSQL_HOST"] = os.getenv("DB_HOST")
+    app.config["MYSQL_USER"] = os.getenv("DB_USER")
+    app.config["MYSQL_PASSWORD"] = os.getenv("DB_PASSWORD")
+    app.config["MYSQL_DB"] = os.getenv("DB_NAME")
+    app.config["MYSQL_PORT"] = int(os.getenv("DB_PORT"))
 
     # ── Register all route blueprints ──
     from routes.startups       import startups_bp
@@ -26,27 +36,30 @@ def create_app():
     from routes.health_scores  import health_bp
     from routes.team_history   import team_bp
     from routes.equity_rounds  import equity_bp
-    from routes.locations           import locations_bp
-    from routes.industries          import industries_bp
-    from routes.product_categories  import product_categories_bp
+    from routes.locations      import locations_bp
+    from routes.industries     import industries_bp
+    from routes.product_categories import product_categories_bp
 
-    app.register_blueprint(startups_bp,            url_prefix="/api/startups")
-    app.register_blueprint(founders_bp,            url_prefix="/api/founders")
-    app.register_blueprint(sharks_bp,              url_prefix="/api/sharks")
-    app.register_blueprint(deals_bp,               url_prefix="/api/deals")
-    app.register_blueprint(products_bp,            url_prefix="/api/products")
-    app.register_blueprint(portfolio_bp,           url_prefix="/api/portfolio")
-    app.register_blueprint(metrics_bp,             url_prefix="/api/metrics")
-    app.register_blueprint(milestones_bp,          url_prefix="/api/milestones")
-    app.register_blueprint(dd_bp,                  url_prefix="/api/due-diligence")
-    app.register_blueprint(valuations_bp,          url_prefix="/api/valuations")
-    app.register_blueprint(health_bp,              url_prefix="/api/health-scores")
-    app.register_blueprint(team_bp,                url_prefix="/api/team-history")
-    app.register_blueprint(equity_bp,              url_prefix="/api/equity-rounds")
-    app.register_blueprint(locations_bp,           url_prefix="/api/locations")
-    app.register_blueprint(industries_bp,          url_prefix="/api/industries")
-    app.register_blueprint(product_categories_bp,  url_prefix="/api/product-categories")
+    app.register_blueprint(startups_bp, url_prefix="/api/startups")
+    app.register_blueprint(founders_bp, url_prefix="/api/founders")
+    app.register_blueprint(sharks_bp, url_prefix="/api/sharks")
+    app.register_blueprint(deals_bp, url_prefix="/api/deals")
+    app.register_blueprint(products_bp, url_prefix="/api/products")
+    app.register_blueprint(portfolio_bp, url_prefix="/api/portfolio")
+    app.register_blueprint(metrics_bp, url_prefix="/api/metrics")
+    app.register_blueprint(milestones_bp, url_prefix="/api/milestones")
+    app.register_blueprint(dd_bp, url_prefix="/api/due-diligence")
+    app.register_blueprint(valuations_bp, url_prefix="/api/valuations")
+    app.register_blueprint(health_bp, url_prefix="/api/health-scores")
+    app.register_blueprint(team_bp, url_prefix="/api/team-history")
+    app.register_blueprint(equity_bp, url_prefix="/api/equity-rounds")
+    app.register_blueprint(locations_bp, url_prefix="/api/locations")
+    app.register_blueprint(industries_bp, url_prefix="/api/industries")
+    app.register_blueprint(product_categories_bp, url_prefix="/api/product-categories")
 
+    # =========================
+    # HEALTH CHECK
+    # =========================
     @app.route("/api/health")
     def health_check():
         return {"status": "ok", "message": "TankTrack API running"}
@@ -54,6 +67,10 @@ def create_app():
     return app
 
 
+# =========================
+# RUN SERVER (FIXED)
+# =========================
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True, port=5000)
+    PORT = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=PORT)
