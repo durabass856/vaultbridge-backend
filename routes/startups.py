@@ -43,10 +43,13 @@ def get_one(sid):
 @startups_bp.route("/", methods=["POST"])
 def create():
     b = request.get_json()
+
     required = ["startup_name", "founded_year"]
     for f in required:
-        if not b.get(f): return error(f"{f} is required")
+        if not b.get(f):
+            return error(f"{f} is required")
 
+    # 1️⃣ Insert startup
     sql = """
         INSERT INTO startup
           (startup_name, tagline, industry_id, location_id, website,
@@ -54,6 +57,7 @@ def create():
            profit_loss_usd, num_employees, total_funding_usd, status)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
+
     args = (
         b.get("startup_name"), b.get("tagline"),
         b.get("industry_id"), b.get("location_id"),
@@ -62,9 +66,32 @@ def create():
         b.get("profit_loss_usd"), b.get("num_employees"),
         b.get("total_funding_usd", 0), b.get("status", "Active"),
     )
+
     data, err = query(sql, args, fetch="none")
-    if err: return error(err)
-    return success({"startup_id": data["lastrowid"]}, "Startup created", 201)
+    if err:
+        return error(err)
+
+    startup_id = data["lastrowid"]
+
+    awards = b.get("awards")  # expect list of objects
+
+    if awards:
+        award_sql = """
+            INSERT INTO startup_award
+            (startup_id, award_name, awarding_body, award_date, award_category)
+            VALUES (%s,%s,%s,%s,%s)
+        """
+
+        for award in awards:
+            query(award_sql, (
+                startup_id,
+                award.get("award_name"),
+                award.get("awarding_body"),
+                award.get("award_date"),
+                award.get("award_category")
+            ), fetch="none")
+
+    return success({"startup_id": startup_id}, "Startup created", 201)
 
 
 # PUT /api/startups/<id>
