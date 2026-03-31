@@ -9,7 +9,7 @@ pymysql.install_as_MySQLdb()
 mysql = MySQL()
 
 def create_app():
-app = Flask(**name**)
+app = Flask(__name__)
 
 ```
 app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST")
@@ -64,7 +64,7 @@ def health_check():
 return app
 ```
 
-if **name** == "**main**":
+if __name__ == "__main__":
 app = create_app()
 PORT = int(os.getenv("PORT", 5000))
 app.run(host="0.0.0.0", port=PORT)
