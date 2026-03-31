@@ -1,24 +1,30 @@
-from flask import Flask
+from flask import Flask, g
 from flask_cors import CORS
-from flask_mysqldb import MySQL
 import pymysql
+import pymysql.cursors
 import os
 
-pymysql.install_as_MySQLdb()
-mysql = MySQL()
+def get_db():
+    if 'db' not in g:
+        g.db = pymysql.connect(
+            host=os.getenv("MYSQL_HOST"),
+            user=os.getenv("MYSQL_USER"),
+            password=os.getenv("MYSQL_PASSWORD"),
+            database=os.getenv("MYSQL_DB"),
+            port=int(os.getenv("MYSQL_PORT", 3306)),
+            cursorclass=pymysql.cursors.DictCursor
+        )
+    return g.db
 
 def create_app():
     app = Flask(__name__)
-
-    app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST")
-    app.config["MYSQL_USER"] = os.getenv("MYSQL_USER")
-    app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD")
-    app.config["MYSQL_DB"] = os.getenv("MYSQL_DB")
-    app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
-    app.config["MYSQL_CURSORCLASS"] = os.getenv("MYSQL_CURSORCLASS", "DictCursor")
-
-    mysql.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    @app.teardown_appcontext
+    def close_db(error):
+        db = g.pop('db', None)
+        if db is not None:
+            db.close()
 
     from routes.startups import startups_bp
     from routes.founders import founders_bp
@@ -60,8 +66,9 @@ def create_app():
 
     return app
 
-
 if __name__ == "__main__":
     app = create_app()
     PORT = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=PORT)
+
+pymysql
