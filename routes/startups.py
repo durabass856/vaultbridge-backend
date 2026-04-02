@@ -44,10 +44,8 @@ def get_one(sid):
 def create():
     b = request.get_json()
 
-    required = ["startup_name", "founded_year"]
-    for f in required:
-        if not b.get(f):
-            return error(f"{f} is required")
+    if not b or not b.get("startup_name"):
+        return error("startup_name is required")
 
     # 1️⃣ Insert startup
     sql = """
