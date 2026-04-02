@@ -27,8 +27,8 @@ def get_one(sid):
 @sharks_bp.route("/", methods=["POST"])
 def create():
     b = request.get_json()
-    if not b.get("first_name") or not b.get("net_worth_usd_millions"):
-        return error("first_name and net_worth_usd_millions are required")
+    if not b or not b.get("first_name"):
+        return error("first_name is required")
     sql = """INSERT INTO shark
              (first_name,last_name,email,phone,date_of_birth,nationality,
               net_worth_usd_millions,company_id,bio)
