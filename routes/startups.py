@@ -1,12 +1,12 @@
 from flask import Blueprint, request
-from app import mysql
-from models.db import query, success, error
+from models.db import get_connection, query, success, error
 
 startups_bp = Blueprint("startups", __name__)
 
 
 def ensure_db_lab_objects():
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
     try:
         cur.execute("DROP TRIGGER IF EXISTS trg_startup_status_history")
         cur.execute(
@@ -95,10 +95,11 @@ def ensure_db_lab_objects():
             """
         )
 
-        mysql.connection.commit()
+        conn.commit()
         return None
     finally:
         cur.close()
+        conn.close()
 
 
 # GET /api/startups
@@ -169,12 +170,14 @@ def get_status_history(sid):
 def get_cursor_summary(sid):
     try:
         ensure_db_lab_objects()
-        cur = mysql.connection.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
         cur.execute("CALL sp_cursor_startup_metric_summary(%s)", (sid,))
         data = cur.fetchone()
         while cur.nextset():
             pass
         cur.close()
+        conn.close()
         return success(data or {})
     except Exception as exc:
         return error(str(exc), 500)
