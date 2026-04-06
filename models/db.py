@@ -2,9 +2,6 @@ import pymysql
 import os
 from flask import jsonify
 
-# =========================
-# DB CONNECTION
-# =========================
 def get_connection():
     return pymysql.connect(
         host=os.getenv("MYSQL_HOST"),
@@ -15,14 +12,12 @@ def get_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
-# =========================
-# QUERY FUNCTION
-# =========================
 def query(sql, args=None, fetch="all"):
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(sql, args or ())
+
         if fetch == "all":
             data = cur.fetchall()
         elif fetch == "one":
@@ -33,17 +28,16 @@ def query(sql, args=None, fetch="all"):
                 "affected_rows": cur.rowcount,
                 "lastrowid": cur.lastrowid
             }
+
         cur.close()
         conn.close()
         return data, None
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         return None, str(e)
 
-# =========================
-# RESPONSE HELPERS
-# =========================
 def success(data=None, message="ok", status=200):
     return jsonify({
         "success": True,
