@@ -87,42 +87,104 @@ def get_portfolio_summary(sid):
 @sharks_bp.route("/", methods=["POST"])
 def create():
     b = request.get_json()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    if not b or not b.get("first_name"):
-        return error("first_name is required")
+    try:
+        # 🔹 1. VALIDATION
+        if not b or not b.get("first_name"):
+            return error("first_name is required")
 
-    sql = """
-        INSERT INTO shark
-        (first_name,last_name,email,phone,date_of_birth,nationality,
-         net_worth_usd_millions,company_id,bio)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """
+        # 🔹 2. INSERT SHARK
+        cur.execute("""
+            INSERT INTO shark
+            (first_name,last_name,email,phone,date_of_birth,nationality,
+             net_worth_usd_millions,bio)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            b.get("first_name"),
+            b.get("last_name"),
+            b.get("email"),
+            b.get("phone"),
+            b.get("date_of_birth"),
+            b.get("nationality"),
+            b.get("net_worth_usd_millions"),
+            b.get("bio")
+        ))
 
-    args = (
-        b.get("first_name"),
-        b.get("last_name"),
-        b.get("email"),
-        b.get("phone"),
-        b.get("date_of_birth"),
-        b.get("nationality"),
-        b.get("net_worth_usd_millions"),
-        b.get("company_id"),
-        b.get("bio")
-    )
+        shark_id = cur.lastrowid
 
-    data, err = query(sql, args, fetch="none")
-    if err: return error(err)
+        # 🔹 3. COMPANY (optional)
+        if b.get("company"):
+            c = b["company"]
 
-    sid = data["lastrowid"]
+            cur.execute("""
+                INSERT INTO investor_company (company_name, company_type)
+                VALUES (%s,%s)
+            """, (
+                c.get("company_name"),
+                c.get("company_type")
+            ))
 
-    if b.get("expertise_domain"):
-        query(
-            "INSERT INTO shark_expertise (shark_id,domain,is_primary) VALUES (%s,%s,1)",
-            (sid, b["expertise_domain"]),
-            fetch="none"
-        )
+            company_id = cur.lastrowid
 
-    return success({"shark_id": sid}, "Investor created", 201)
+            cur.execute(
+                "UPDATE shark SET company_id=%s WHERE shark_id=%s",
+                (company_id, shark_id)
+            )
+
+        # 🔹 4. EXPERTISE
+        for e in b.get("expertise", []):
+            cur.execute("""
+                INSERT INTO shark_expertise (shark_id,domain,is_primary)
+                VALUES (%s,%s,%s)
+            """, (
+                shark_id,
+                e.get("domain"),
+                e.get("is_primary", 1)
+            ))
+
+        # 🔹 5. PORTFOLIO
+        for p in b.get("portfolio", []):
+            cur.execute("""
+                INSERT INTO investment_portfolio
+                (shark_id,startup_id,total_invested_usd,current_equity_percent,
+                 portfolio_status,current_valuation_usd,roi_percent)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                shark_id,
+                p.get("startup_id"),
+                p.get("total_invested_usd"),
+                p.get("current_equity_percent"),
+                p.get("portfolio_status", "Active"),
+                p.get("current_valuation_usd"),
+                p.get("roi_percent")
+            ))
+
+        # 🔹 6. DEAL (optional)
+        if b.get("deal"):
+            d = b["deal"]
+
+            cur.execute("""
+                INSERT INTO deal
+                (startup_id,deal_amount_usd,deal_equity_percent,
+                 deal_type,handshake_date,deal_status)
+                VALUES (%s,%s,%s,%s,%s,%s)
+            """, (
+                d.get("startup_id"),
+                d.get("deal_amount_usd"),
+                d.get("deal_equity_percent"),
+                d.get("deal_type", "Equity"),
+                d.get("handshake_date"),
+                d.get("deal_status", "Handshake")
+            ))
+
+        conn.commit()
+        return success({"shark_id": shark_id}, "Investor created", 201)
+
+    except Exception as e:
+        conn.rollback()
+        return error(str(e), 500)
 
 
 # ─────────────────────────────────────────────
