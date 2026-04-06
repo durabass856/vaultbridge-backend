@@ -44,8 +44,6 @@ def create_app():
     from routes.industries import industries_bp
     from routes.product_categories import product_categories_bp
 
-    
-
     app.register_blueprint(startups_bp, url_prefix="/api/startups")
     app.register_blueprint(founders_bp, url_prefix="/api/founders")
     app.register_blueprint(sharks_bp, url_prefix="/api/sharks")
