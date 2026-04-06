@@ -33,26 +33,68 @@ def get_all():
 #  GET ONE STARTUP (UPGRADED)
 # ─────────────────────────────────────────────
 @startups_bp.route("/<int:sid>", methods=["GET"])
+@sharks_bp.route("/<int:sid>", methods=["GET"])
 def get_one(sid):
-    sql = """
+
+    # 🔹 1. BASIC PROFILE + COMPANY
+    shark, err = query(
+        """
         SELECT 
-            s.*,
-            i.industry_name,
-            CONCAT(l.city, ', ', l.country) AS location_display,
+            sh.*,
+            ic.company_name,
+            ic.company_type,
+            fn_total_invested_by_shark(sh.shark_id) AS total_invested_usd
+        FROM shark sh
+        LEFT JOIN investor_company ic ON sh.company_id = ic.company_id
+        WHERE sh.shark_id = %s
+        """,
+        (sid,), fetch="one"
+    )
 
-            fn_latest_valuation(s.startup_id) AS latest_valuation_usd,
-            fn_startup_health_risk(s.startup_id) AS health_risk,
-            fn_deal_count_for_startup(s.startup_id) AS closed_deals
-
-        FROM startup s
-        LEFT JOIN industry i ON s.industry_id = i.industry_id
-        LEFT JOIN location l ON s.location_id = l.location_id
-        WHERE s.startup_id = %s
-    """
-    data, err = query(sql, (sid,), fetch="one")
     if err: return error(err)
-    if not data: return error("Startup not found", 404)
-    return success(data)
+    if not shark: return error("Shark not found", 404)
+
+    # 🔹 2. EXPERTISE
+    expertise, _ = query(
+        "SELECT domain, is_primary FROM shark_expertise WHERE shark_id=%s",
+        (sid,)
+    )
+
+    # 🔹 3. PORTFOLIO
+    portfolio, _ = query("""
+        SELECT ip.*, s.startup_name
+        FROM investment_portfolio ip
+        JOIN startup s ON ip.startup_id = s.startup_id
+        WHERE ip.shark_id=%s
+    """, (sid,))
+
+    # 🔹 4. DEALS
+    deals, _ = query("""
+        SELECT d.*, s.startup_name
+        FROM deal d
+        JOIN startup s ON d.startup_id = s.startup_id
+        JOIN deal_shark ds ON d.deal_id = ds.deal_id
+        WHERE ds.shark_id=%s
+    """, (sid,))
+
+    # 🔹 5. SIMPLE STATS
+    stats, _ = query("""
+        SELECT 
+            COUNT(DISTINCT ip.startup_id) AS total_startups,
+            COUNT(DISTINCT d.deal_id) AS total_deals
+        FROM investment_portfolio ip
+        LEFT JOIN deal_shark ds ON ip.shark_id = ds.shark_id
+        LEFT JOIN deal d ON ds.deal_id = d.deal_id
+        WHERE ip.shark_id = %s
+    """, (sid,), fetch="one")
+
+    # 🔹 6. COMBINE RESPONSE
+    shark["expertise"] = expertise or []
+    shark["portfolio"] = portfolio or []
+    shark["deals"] = deals or []
+    shark["stats"] = stats or {}
+
+    return success(shark)
 
 
 # ─────────────────────────────────────────────
