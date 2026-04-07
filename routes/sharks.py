@@ -13,8 +13,6 @@ def get_all():
             sh.*, 
             ic.company_name, 
             ic.company_type,
-
-            -- 🔥 NEW
             fn_total_invested_by_shark(sh.shark_id) AS total_invested_usd
 
         FROM shark sh
@@ -51,7 +49,7 @@ def get_one(sid):
 
 
 # ─────────────────────────────────────────────
-# PORTFOLIO SUMMARY (🔥 IMPORTANT)
+# PORTFOLIO SUMMARY
 # ─────────────────────────────────────────────
 @sharks_bp.route("/<int:sid>/portfolio-summary", methods=["GET"])
 def get_portfolio_summary(sid):
@@ -134,7 +132,14 @@ def create():
             )
 
         # 🔹 4. EXPERTISE
-        for e in b.get("expertise", []):
+        # ✅ FIX: support both array format and flat expertise_domain fallback
+        expertise_list = b.get("expertise", [])
+        if not expertise_list and b.get("expertise_domain"):
+            expertise_list = [{"domain": b["expertise_domain"], "is_primary": 1}]
+
+        for e in expertise_list:
+            if not e.get("domain"):
+                continue  # skip empty entries
             cur.execute("""
                 INSERT INTO shark_expertise (shark_id,domain,is_primary)
                 VALUES (%s,%s,%s)
