@@ -32,8 +32,8 @@ def get_all():
 # ─────────────────────────────────────────────
 #  GET ONE STARTUP (UPGRADED)
 # ─────────────────────────────────────────────
+
 @startups_bp.route("/<int:sid>", methods=["GET"])
-@sharks_bp.route("/<int:sid>", methods=["GET"])
 def get_one(sid):
 
     # 🔹 1. BASIC PROFILE + COMPANY
